@@ -1,37 +1,27 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const $ = (id) => document.getElementById(id);
+    const $ = id => document.getElementById(id);
     const token = () => localStorage.getItem('crm_token');
-    const setTheme = (dark) => { document.body.classList.toggle('dark', dark); localStorage.setItem('crm-theme', dark ? 'dark' : 'light'); $('themeToggle').textContent = dark ? 'Light Mode' : 'Dark Mode'; };
+    const escape = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+    const showLogin = () => { $('loginPanel').classList.remove('hidden'); $('dashboardApp').classList.add('hidden'); };
+    const showApp = () => { $('loginPanel').classList.add('hidden'); $('dashboardApp').classList.remove('hidden'); loadDashboard(); loadCalendar(); };
+    const setTheme = dark => { document.body.classList.toggle('dark', dark); localStorage.setItem('crm-theme', dark ? 'dark' : 'light'); if ($('themeToggle')) $('themeToggle').textContent = dark ? 'Light Mode' : 'Dark Mode'; };
     setTheme(localStorage.getItem('crm-theme') === 'dark');
     $('themeToggle').onclick = () => setTheme(!document.body.classList.contains('dark'));
 
     async function api(path, options = {}) {
-        const response = await fetch(`/api/v1${path}`, { ...options, headers: { Accept: 'application/json', ...(options.body ? {'Content-Type':'application/json'} : {}), Authorization: `Bearer ${token()}`, ...(options.headers || {}) }});
+        const response = await fetch(`/api/v1${path}`, { ...options, headers: { Accept:'application/json', ...(options.body ? {'Content-Type':'application/json'} : {}), Authorization:`Bearer ${token()}`, ...(options.headers || {}) }});
         const data = await response.json().catch(() => ({}));
-        if (response.status === 401) { localStorage.removeItem('crm_token'); showLogin(); throw new Error('Sesi berakhir. Silakan masuk kembali.'); }
-        if (!response.ok) throw new Error(data.message || 'Gagal mengambil data.');
+        if (response.status === 401) { localStorage.removeItem('crm_token'); showLogin(); throw new Error('Sesi berakhir, silakan login lagi.'); }
+        if (!response.ok) throw new Error(data.message || Object.values(data.errors || {}).flat().join(' ') || 'Permintaan gagal.');
         return data;
     }
-    function showLogin() { $('loginPanel').classList.remove('hidden'); $('dashboardApp').classList.add('hidden'); }
-    function showDashboard() { $('loginPanel').classList.add('hidden'); $('dashboardApp').classList.remove('hidden'); loadDashboard(); loadCalendar(); }
-    function statusChip(status) { const cls = {confirmed:'success',checked_in:'info',checked_out:'info',pending:'warning',cancelled:'danger'}[status] || 'info'; return `<span class="chip ${cls}">${status.replace('_',' ')}</span>`; }
-    function metric(label, value, note, accent) { return `<article class="stat-card accent-${accent}"><div class="stat-top"><span>${label}</span><span class="badge info">Database</span></div><h2>${value}</h2><small>${note}</small></article>`; }
-    async function loadDashboard() {
-        try {
-            const data = await api('/dashboard');
-            $('statsGrid').innerHTML = metric('Booking hari ini', data.bookings_today, `${data.pending_bookings} menunggu konfirmasi`, 'teal') + metric('Check-in hari ini', data.checkins_today, `${data.active_guests} booking aktif`, 'blue') + metric('Kamar tersedia', data.available_rooms, 'Status kamar saat ini', 'gold') + metric('Check-out hari ini', data.checkouts_today, 'Jadwal keberangkatan', 'rose');
-            $('bookingRows').innerHTML = (data.recent_bookings || []).map((booking) => `<tr><td>${booking.booking_code}</td><td>${booking.guest?.name || '-'}</td><td>${booking.room?.code || '-'}</td><td>${new Date(booking.check_in).toLocaleString('id-ID')}</td><td>${statusChip(booking.status)}</td></tr>`).join('') || '<tr><td colspan="5">Belum ada booking.</td></tr>';
-            const total = Math.max(data.available_rooms + data.active_guests, 1), occupancy = Math.min(100, Math.round(data.active_guests / total * 100));
-            $('operationalMetrics').innerHTML = `<div class="mini-metric"><div><span>Occupancy</span><strong>${occupancy}%</strong></div><div class="progress"><span style="width:${occupancy}%"></span></div></div><div class="mini-metric"><div><span>Booking pending</span><strong>${data.pending_bookings}</strong></div><div class="progress"><span style="width:${Math.min(100,data.pending_bookings*10)}%"></span></div></div>`;
-            $('lastUpdated').textContent = `Terakhir diperbarui ${new Date().toLocaleString('id-ID')}`;
-        } catch (error) { $('lastUpdated').textContent = error.message; }
-    }
-    async function loadCalendar() {
-        const start = new Date(); start.setDate(1); const end = new Date(start); end.setMonth(end.getMonth()+1);
-        try { const events = await api(`/calendar?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`); $('calendarEvents').innerHTML = events.map(e => `<li><span class="dot ${e.status === 'confirmed' ? 'success' : 'warning'}"></span><div><strong>${e.title}</strong><small>${new Date(e.start).toLocaleString('id-ID')} — ${e.status}</small></div></li>`).join('') || '<li>Tidak ada booking bulan ini.</li>'; } catch (error) { $('calendarEvents').innerHTML = `<li>${error.message}</li>`; }
-    }
-    $('adminLoginForm').onsubmit = async (event) => { event.preventDefault(); $('loginError').textContent = ''; try { const response = await fetch('/api/v1/auth/login', {method:'POST', headers:{'Content-Type':'application/json',Accept:'application/json'}, body:JSON.stringify({email:$('loginEmail').value,password:$('loginPassword').value})}); const data = await response.json(); if (!response.ok) throw new Error(data.message || 'Login gagal.'); localStorage.setItem('crm_token', data.token); showDashboard(); } catch (error) { $('loginError').textContent = error.message; } };
-    $('logoutButton').onclick = async () => { try { await api('/auth/logout', {method:'POST'}); } catch (_) {} localStorage.removeItem('crm_token'); showLogin(); };
-    $('refreshButton').onclick = loadDashboard; $('calendarRefresh').onclick = loadCalendar; $('loadMoreBookings').onclick = () => window.location.href = '/dashboard';
-    token() ? showDashboard() : showLogin();
+    const statusChip = status => `<span class="chip ${status === 'confirmed' ? 'success' : status === 'pending' ? 'warning' : status === 'cancelled' ? 'danger' : 'info'}">${escape(status.replaceAll('_',' '))}</span>`;
+    const metric = (title, value, note, accent) => `<article class="stat-card accent-${accent}"><div class="stat-top"><span>${title}</span><span class="badge info">Live</span></div><h2>${value ?? 0}</h2><small>${note}</small></article>`;
+    async function loadDashboard() { try { const d = await api('/dashboard'); $('statsGrid').innerHTML = metric('Booking hari ini',d.bookings_today,`${d.pending_bookings} pending`,'teal')+metric('Check-in hari ini',d.checkins_today,`${d.active_guests} booking aktif`,'blue')+metric('Kamar tersedia',d.available_rooms,'Status kamar saat ini','gold')+metric('Check-out hari ini',d.checkouts_today,'Jadwal keberangkatan','rose'); $('bookingRows').innerHTML=(d.recent_bookings || []).map(b=>`<tr><td>${escape(b.booking_code)}</td><td>${escape(b.guest?.name || '-')}</td><td>${escape(b.room?.code || '-')}</td><td>${new Date(b.check_in).toLocaleString('id-ID')}</td><td>${statusChip(b.status)}</td></tr>`).join('') || '<tr><td colspan="5">Belum ada booking.</td></tr>'; const total=Math.max((d.available_rooms||0)+(d.active_guests||0),1), occupancy=Math.min(100,Math.round((d.active_guests||0)/total*100)); $('operationalMetrics').innerHTML=`<div class="mini-metric"><div><span>Occupancy</span><strong>${occupancy}%</strong></div><div class="progress"><span style="width:${occupancy}%"></span></div></div><div class="mini-metric"><div><span>Booking pending</span><strong>${d.pending_bookings}</strong></div><div class="progress"><span style="width:${Math.min(100,d.pending_bookings*10)}%"></span></div></div>`; $('lastUpdated').textContent=`Terakhir diperbarui ${new Date().toLocaleString('id-ID')}`; } catch(e) { $('lastUpdated').textContent=e.message; } }
+    async function loadCalendar() { const start=new Date(); start.setDate(1); const end=new Date(start); end.setMonth(end.getMonth()+1); try { const events=await api(`/calendar?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`); $('calendarEvents').innerHTML=events.map(e=>`<li><span class="dot ${e.status==='confirmed'?'success':'warning'}"></span><div><strong>${escape(e.title)}</strong><small>${new Date(e.start).toLocaleString('id-ID')} · ${escape(e.status)}</small></div></li>`).join('') || '<li>Tidak ada booking bulan ini.</li>'; } catch(e) { $('calendarEvents').innerHTML=`<li>${escape(e.message)}</li>`; } }
+    $('adminLoginForm').onsubmit = async e => { e.preventDefault(); $('loginError').textContent=''; try { const r=await fetch('/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({email:$('loginEmail').value,password:$('loginPassword').value})}); const d=await r.json(); if(!r.ok) throw new Error(d.message || 'Login gagal.'); localStorage.setItem('crm_token',d.token); showApp(); } catch(err) { $('loginError').textContent=err.message; } };
+    $('logoutButton').onclick=async()=>{try{await api('/auth/logout',{method:'POST'});}catch(_){} localStorage.removeItem('crm_token');showLogin();}; $('refreshButton').onclick=loadDashboard; $('calendarRefresh').onclick=loadCalendar;
+    let deferredPrompt; window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt=e; $('installButton').hidden=false; }); $('installButton').onclick=async()=>{if(!deferredPrompt)return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; $('installButton').hidden=true;};
+    $('enablePushButton').onclick=async()=>{ if(!('Notification' in window)||!('serviceWorker' in navigator)){ $('toast').textContent='Browser tidak mendukung push notification.'; return; } const permission=await Notification.requestPermission(); $('toast').textContent=permission==='granted'?'Izin notifikasi diaktifkan. Konfigurasi VAPID diperlukan untuk push produksi.':'Izin notifikasi ditolak.'; };
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {}); token() ? showApp() : showLogin();
 });

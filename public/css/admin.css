@@ -1,17 +1,4 @@
-/* Shared admin additions */
-.hidden { display: none !important; }
-.error { color: var(--danger); min-height: 1.2em; }
-.small { padding: 6px 10px; font-size: .8rem; }
-.toolbar { display:flex; gap:10px; margin-bottom:16px; }
-.toolbar input, .modal-card input, .modal-card select, .modal-card textarea, .auth-card input { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; background:var(--panel-alt); color:var(--text); margin-bottom:10px; font:inherit; }
-.toolbar input { max-width:360px; margin:0; }
-.auth-panel { min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--text); padding:20px; }
-.auth-card { width:min(100%,420px); background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:28px; box-shadow:var(--shadow); text-align:center; }
+
+.quick-actions { display:grid; gap:10px; }
+.quick-actions .btn { text-align:center; }
 .auth-card .brand-mark { margin:0 auto 14px; }
-.auth-card h1 { font-size:1.35rem; margin:0 0 8px; }
-.auth-card form { text-align:left; margin-top:20px; }
-.auth-card .btn { width:100%; }
-.modal { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:20px; background:rgba(15,23,42,.55); }
-.modal-card { width:min(100%,540px); max-height:90vh; overflow:auto; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:18px; padding:20px; box-shadow:var(--shadow); }
-.modal-card textarea { min-height:90px; resize:vertical; }
-.btn.danger { background:var(--danger); color:#fff; }
