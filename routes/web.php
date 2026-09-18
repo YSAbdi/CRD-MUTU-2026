@@ -2,8 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'dashboard');
-Route::view('/dashboard', 'dashboard');
+Route::view('/', 'admin.dashboard')->name('home');
+Route::view('/dashboard', 'admin.dashboard')->name('dashboard');
 Route::view('/admin/dashboard', 'admin.dashboard')->name('admin.dashboard');
 Route::view('/admin/guests', 'admin.guests')->name('admin.guests');
 Route::view('/admin/rooms', 'admin.rooms')->name('admin.rooms');

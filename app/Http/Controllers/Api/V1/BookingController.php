@@ -12,9 +12,9 @@ class BookingController extends Controller
 {
     public function updateStatus(Request $request, Booking $booking)
     {
-        $data = $request->validate(['status'=>['required',Rule::in(['pending','confirmed','checked_in','checked_out','cancelled'])]]);
+        $data = $request->validate(['status' => ['required', Rule::in(['pending','confirmed','checked_in','checked_out','cancelled'])]]);
         $booking->update($data);
-        $booking->load(['guest','room']);
+        $booking->load(['guest','room','creator']);
         if ($booking->creator) $booking->creator->notify(new BookingStatusChanged($booking));
         return $booking;
     }
